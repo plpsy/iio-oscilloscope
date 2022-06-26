@@ -88,7 +88,7 @@ add_definitions(-D_GNU_SOURCE
 	-D_POSIX_C_SOURCE=200809L
 )
 
-add_compile_options(-Wall -Wextra -Werror
+add_compile_options(-Wall -Wextra
 	-Wno-unused-parameter
 	-Wno-error=unused-but-set-variable
 	-Wno-error=unused-function
@@ -187,6 +187,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set(OSCMAIN_RC oscicon.rc)
 	set_source_files_properties(${OSCMAIN_RC} PROPERTIES LANGUAGE RC)
 	add_compile_options(-mwindows)
+	LINK_DIRECTORIES(/iio-oscilloscope/sysroot-x86_64/usr/bin)
+	LINK_DIRECTORIES(/iio-oscilloscope/sysroot-x86_64/usr/lib)
 	set(WIN_LINK_FLAGS "-Wl,--export-all-symbols -Wl,--subsystem,windows")
 else()
 	add_compile_options(-rdynamic)
