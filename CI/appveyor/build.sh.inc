@@ -19,6 +19,7 @@ shopt -s extglob
 # Build the osc
 build_osc () {
 	cd ${CURDIR}
+	git checkout ${SYSROOT}
 	rm -rf build
 	mkdir build && cd build
 	cmake -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=${HOST}-gcc -DCMAKE_RC_COMPILER=${HOST}-windres \
