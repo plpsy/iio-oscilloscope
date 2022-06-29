@@ -7,10 +7,10 @@
     <property name="border_width">5</property>
     <property name="modal">True</property>
     <property name="type_hint">dialog</property>
-    <property name="program_name">Analog Devices Inc. Industrial I/O Oscilloscope</property>
+    <property name="program_name">AICLAB. Industrial I/O Oscilloscope</property>
     <property name="version">0.8</property>
-    <property name="copyright" translatable="yes">Copyright Analog Devices, 2012-2016</property>
-    <property name="website">http://wiki.analog.com/resources/tools-software/linux-software/iio_oscilloscope</property>
+    <property name="copyright" translatable="yes">Copyright AICLAB and DEC, 2022-2027</property>
+    <property name="website">http://www.aiclab.org</property>
     <property name="website_label" translatable="yes">Homepage</property>
     <property name="license" translatable="yes">http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -1174,7 +1174,7 @@ Serial:
   </object>
   <object class="GtkWindow" id="main_menu">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">ADI IIO Oscilloscope</property>
+    <property name="title" translatable="yes">AICLAB IIO Oscilloscope</property>
     <property name="default_width">640</property>
     <property name="default_height">480</property>
     <property name="icon_name">adi-osc</property>

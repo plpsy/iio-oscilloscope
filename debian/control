@@ -11,6 +11,6 @@ Vcs-Git: git://github.com/analogdevicesinc/iio-oscilloscope
 Package: iio-osc
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: ADI IIO Oscilloscope
+Description: AICLAB IIO Oscilloscope
  The IIO Oscilloscope is an application that allows you to capture and visualize
  data from local or remote IIO devices as well as configure them.

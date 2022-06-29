@@ -648,7 +648,7 @@
   </object>
   <object class="GtkWindow" id="toplevel">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">ADI IIO Oscilloscope - Capture</property>
+    <property name="title" translatable="yes">AICLAB IIO Oscilloscope - Capture</property>
     <property name="default_width">800</property>
     <property name="default_height">600</property>
     <property name="icon_name">adi-osc</property>
@@ -1612,7 +1612,7 @@
   <object class="GtkFileChooserDialog" id="saveas_dialog">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
-    <property name="title" translatable="yes">ADI IIO oscilloscope - Save As</property>
+    <property name="title" translatable="yes">AICLAB IIO oscilloscope - Save As</property>
     <property name="role">GtkFileChooserDialog</property>
     <property name="modal">True</property>
     <property name="icon_name">adi-osc</property>
