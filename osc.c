@@ -1187,10 +1187,9 @@ static ssize_t demux_sample(const struct iio_channel *chn,
 	} else if (size == 4) {
 		int32_t val;
 		iio_channel_convert(chn, &val, sample);
-		if (format->is_signed)
-			*(info->data_ref + info->offset++) = (gfloat) val;
-		else
-			*(info->data_ref + info->offset++) = (gfloat) (uint32_t)val;
+		int32_t shift = 32-format->bits;
+		val = (val<<shift) >> shift;
+ 		*(info->data_ref + info->offset++) = ((gfloat) val) * format->scale;
 	} else {
 		int64_t val;
 		iio_channel_convert(chn, &val, sample);
