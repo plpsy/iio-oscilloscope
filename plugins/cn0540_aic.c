@@ -21,8 +21,11 @@
 #include "./block_diagram.h"
 
 #define THIS_DRIVER			"CN0540_AIC"
-#define ADC_DEVICE			"cf_axi_adc"
+#define ADC_DEVICE0			"cf_axi_adc"
+#define ADC_DEVICE1			"cf_axi_adc_1"
+
 #define DAC_DEVICE			"ltc2606_0"
+#define DAC_DEVICE_PRIFIX			"ltc2606_"
 #define VOLTAGE_MONITOR_1		"xadc"
 #define VOLTAGE_MONITOR_2		"ltc2308"
 #define ADC_DEVICE_CH			"voltage0"
@@ -38,28 +41,31 @@
 #define NUM_GPIOS			8
 #define NUM_ANALOG_PINS		 	6
 
+#define TOTOL_CHAN	16
+#define AD7768_NUM		2
+#define AD7768_CHAN 	8
 
-struct iio_device *iio_adc;
-struct iio_device *iio_dac;
+struct iio_device *iio_adc[AD7768_NUM];
+struct iio_device *iio_dac[TOTOL_CHAN];
 static struct iio_context *ctx;
-static struct iio_channel *adc_ch;
-static struct iio_channel *dac_ch;
+static struct iio_channel *adc_ch[TOTOL_CHAN];
+static struct iio_channel *dac_ch[TOTOL_CHAN];
 
 static GtkWidget *cn0540_panel;
 
-static GtkButton *calib_btn;
-static GtkButton *write_btn;
-static GtkButton *read_btn;
-static GtkButton *readvsensor_btn;
+static GtkButton *calib_btn[TOTOL_CHAN];
+static GtkButton *write_btn[TOTOL_CHAN];
+static GtkButton *read_btn[TOTOL_CHAN];
+static GtkButton *readvsensor_btn[TOTOL_CHAN];
 
-static GtkTextView *vshift_log;
-static GtkTextView *vsensor_log;
-static GtkTextView *calib_status;
+static GtkTextView *vshift_log[TOTOL_CHAN];
+static GtkTextView *vsensor_log[TOTOL_CHAN];
+static GtkTextView *calib_status[TOTOL_CHAN];
 
 
-static GtkTextBuffer *calib_buffer;
-static GtkTextBuffer *vsensor_buf;
-static GtkTextBuffer *vshift_buf;
+static GtkTextBuffer *calib_buffer[TOTOL_CHAN];
+static GtkTextBuffer *vsensor_buf[TOTOL_CHAN];
+static GtkTextBuffer *vshift_buf[TOTOL_CHAN];
 
 
 static gboolean plugin_detached;
@@ -93,130 +99,216 @@ static void set_voltage(struct iio_channel *ch, double voltage_mv)
 					(long long)(voltage_mv / scale));
 }
 
-static double get_vshift_mv()
+static double get_vshift_mv(int chan)
 {
-	return get_voltage(dac_ch) * DAC_BUF_GAIN;
+	return get_voltage(dac_ch[chan]) * DAC_BUF_GAIN;
 }
 
-static void read_vshift(GtkButton *btn)
+static void read_vshift(GtkButton *btn, int chan)
 {
 	char buff_string[9];
 	double vshift_mv;
-
-	vshift_mv = get_vshift_mv();
+	if(chan < 0 && chan > 15)
+	{
+		exit(1);
+	}
+	vshift_mv = get_vshift_mv(chan);
 
 	snprintf(buff_string, sizeof(buff_string), "%f", vshift_mv);
-	gtk_text_buffer_set_text(vshift_buf, buff_string, -1);
+	gtk_text_buffer_set_text(vshift_buf[chan], buff_string, -1);
 }
 
-static void write_vshift(GtkButton *btn)
+static void write_vshift(GtkButton *btn, int chan)
 {
 	static GtkTextIter start, end;
 	gchar *vshift_string;
 	double vshift_mv;
 
-	gtk_text_buffer_get_start_iter(vshift_buf,&start);
-	gtk_text_buffer_get_end_iter(vshift_buf,&end);
-	vshift_string = gtk_text_buffer_get_text(vshift_buf,&start,&end, -1);
+	gtk_text_buffer_get_start_iter(vshift_buf[chan], &start);
+	gtk_text_buffer_get_end_iter(vshift_buf[chan], &end);
+	vshift_string = gtk_text_buffer_get_text(vshift_buf[chan],&start,&end, -1);
 	vshift_mv = atof(vshift_string);
-	set_voltage(dac_ch, (double)(vshift_mv / DAC_BUF_GAIN));
+	set_voltage(dac_ch[chan], (double)(vshift_mv / DAC_BUF_GAIN));
 
 	g_free(vshift_string);
 	fflush(stdout);
 }
 
-static void read_vsensor(GtkButton *btn)
+static void read_vsensor(GtkButton *btn, int chan)
 {
 
 	char buff_string[9];
 	double vsensor_mv, vshift_mv,vadc_mv;
 
-	vadc_mv = get_voltage(adc_ch);
-	vshift_mv = get_vshift_mv();
+	vadc_mv = get_voltage(adc_ch[chan]);
+	vshift_mv = get_vshift_mv(chan);
 	double v1_st = FDA_VOCM_MV - vadc_mv/FDA_GAIN;
 	vsensor_mv = (((G + 1) *vshift_mv ) - v1_st )/G;
-	vsensor_mv -= get_voltage(adc_ch);
+	vsensor_mv -= get_voltage(adc_ch[chan]);
 
 	snprintf(buff_string, sizeof(buff_string), "%f", vsensor_mv);
-	gtk_text_buffer_set_text(vsensor_buf, buff_string, -1);
+	gtk_text_buffer_set_text(vsensor_buf[chan], buff_string, -1);
 }
 
-static void calib(GtkButton *btn)
+static void calib(GtkButton *btn, int chan)
 {
 	double adc_voltage_mv, dac_voltage_mv;
 	char buff_string[9];
 	int i;
 
-	gtk_text_buffer_set_text(calib_buffer, "Calibrating...", -1);
+	gtk_text_buffer_set_text(calib_buffer[chan], "Calibrating...", -1);
 
 	for(i = 0; i < CALIB_MAX_ITER; i ++)
 	{
-		adc_voltage_mv = get_voltage(adc_ch);
-		dac_voltage_mv = get_voltage(dac_ch) - adc_voltage_mv;
-		set_voltage(dac_ch, dac_voltage_mv);
+		adc_voltage_mv = get_voltage(adc_ch[chan]);
+		dac_voltage_mv = get_voltage(dac_ch[chan]) - adc_voltage_mv;
+		set_voltage(dac_ch[chan], dac_voltage_mv);
 		delay_ms(10);
 	}
 	snprintf(buff_string, sizeof(buff_string), "%f", adc_voltage_mv);
-	gtk_text_buffer_set_text(calib_buffer, buff_string, -1);
-	gtk_button_clicked(read_btn);
-	gtk_button_clicked(readvsensor_btn);
+	gtk_text_buffer_set_text(calib_buffer[chan], buff_string, -1);
+	gtk_button_clicked(read_btn[chan]);
+	gtk_button_clicked(readvsensor_btn[chan]);
 }
 
 
 static void cn0540_get_channels()
 {
-	gboolean direction = TRUE;
-	int idx = -1;
-	char label[9] = "voltage0";
+	int devidx = 0;
+	int chanidx = 0;
+	int idx = 0;
+	char label[64];
 
-	adc_ch = iio_device_find_channel(iio_adc, ADC_DEVICE_CH, FALSE);
-	dac_ch = iio_device_find_channel(iio_dac, DAC_DEVICE_CH, TRUE);
+	for(devidx = 0; devidx < AD7768_NUM; devidx++)
+	{
+		for(chanidx = 0; chanidx < AD7768_CHAN; chanidx++)
+		{
+			idx = (devidx * AD7768_CHAN) + chanidx;
+			memset(label, 0, sizeof(label));
+			sprintf(label, "voltage%d", chanidx);
+			adc_ch[idx] = iio_device_find_channel(iio_adc[devidx], label, FALSE);
+			if(adc_ch[idx] == NULL)
+			{
+				exit(1);
+			}
+		}
+	}
 
+	for(devidx = 0; devidx < TOTOL_CHAN; devidx++)
+	{
+		dac_ch[devidx] = iio_device_find_channel(iio_dac[devidx], DAC_DEVICE_CH, TRUE);
+		if(dac_ch[devidx] == NULL)
+		{
+			exit(2);
+		}
+	}
 }
 
 static void cn0540_plugin_interface_init(GtkBuilder *builder)
 {
+	int i = 0;
+	char name[64];
+
 	cn0540_panel = GTK_WIDGET(gtk_builder_get_object(builder,
 				"cn0540_panel"));
 
-	calib_btn = GTK_BUTTON(gtk_builder_get_object(builder,
-				"calib_btn"));
-	read_btn = GTK_BUTTON(gtk_builder_get_object(builder,
-				"read_btn"));
-	write_btn = GTK_BUTTON(gtk_builder_get_object(builder,
-				"write_btn"));
-	readvsensor_btn = GTK_BUTTON(gtk_builder_get_object(builder,
-				"readvsensor_btn"));
+	for(i = 0; i < TOTOL_CHAN; i++)
+	{
+		memset(name, 0, sizeof(name));
+		sprintf(name, "calib_btn%d", i);
+		calib_btn[i] = GTK_BUTTON(gtk_builder_get_object(builder, name));
+		if(calib_btn[i] == NULL)
+		{
+			exit(1);
+		}
+		memset(name, 0, sizeof(name));
+		sprintf(name, "read_btn%d", i);
+		read_btn[i] = GTK_BUTTON(gtk_builder_get_object(builder, name));
+		if(read_btn[i] == NULL)
+		{
+			exit(1);
+		}
 
-	calib_status = GTK_TEXT_VIEW(gtk_builder_get_object(builder,
-				"calib_status"));
-	calib_buffer = GTK_TEXT_BUFFER(gtk_builder_get_object(builder,
-				"calib_buffer"));
-	vshift_log = GTK_TEXT_VIEW(gtk_builder_get_object(builder,
-				"vshift_log"));
-	vshift_buf = GTK_TEXT_BUFFER(gtk_builder_get_object(builder,
-				"vshift_buf"));
-	vsensor_log = GTK_TEXT_VIEW(gtk_builder_get_object(builder,
-				"vsensor_log"));
-	vsensor_buf = GTK_TEXT_BUFFER(gtk_builder_get_object(builder,
-				"vsensor_buf"));
+		memset(name, 0, sizeof(name));
+		sprintf(name, "write_btn%d", i);
+		write_btn[i] = GTK_BUTTON(gtk_builder_get_object(builder, name));
+		if(write_btn[i] == NULL)
+		{
+			exit(1);
+		}
 
-	g_signal_connect(G_OBJECT(calib_btn),"clicked",
-		G_CALLBACK(calib),&calib_btn);
-	g_signal_connect(G_OBJECT(read_btn),"clicked",
-		G_CALLBACK(read_vshift),&read_btn);
-	g_signal_connect(G_OBJECT(write_btn),"clicked",
-		G_CALLBACK(write_vshift),&write_btn);
-	g_signal_connect(G_OBJECT(readvsensor_btn),"clicked",
-		G_CALLBACK(read_vsensor),&readvsensor_btn);
+		memset(name, 0, sizeof(name));
+		sprintf(name, "readvsensor_btn%d", i);
+		readvsensor_btn[i] = GTK_BUTTON(gtk_builder_get_object(builder, name));
+		if(readvsensor_btn[i] == NULL)
+		{
+			exit(1);
+		}
 
+		memset(name, 0, sizeof(name));
+		sprintf(name, "calib_status%d", i);
+		calib_status[i] = GTK_TEXT_VIEW(gtk_builder_get_object(builder, name));
+		if(calib_status[i] == NULL)
+		{
+			exit(1);
+		}
+
+		memset(name, 0, sizeof(name));
+		sprintf(name, "calib_buffer%d", i);
+		calib_buffer[i] = GTK_TEXT_BUFFER(gtk_builder_get_object(builder, name));
+		if(calib_buffer[i] == NULL)
+		{
+			exit(1);
+		}
+
+		memset(name, 0, sizeof(name));
+		sprintf(name, "vshift_log%d", i);
+		vshift_log[i] = GTK_TEXT_VIEW(gtk_builder_get_object(builder, name));
+		if(vshift_log[i] == NULL)
+		{
+			exit(1);
+		}
+
+		memset(name, 0, sizeof(name));
+		sprintf(name, "vshift_buf%d", i);
+		vshift_buf[i] = GTK_TEXT_BUFFER(gtk_builder_get_object(builder, name));
+		if(vshift_buf[i] == NULL)
+		{
+			exit(1);
+		}
+
+		memset(name, 0, sizeof(name));
+		sprintf(name, "vsensor_log%d", i);
+		vsensor_log[i] = GTK_TEXT_VIEW(gtk_builder_get_object(builder, name));
+		if(vsensor_log[i] == NULL)
+		{
+			exit(1);
+		}
+
+		memset(name, 0, sizeof(name));
+		sprintf(name, "vsensor_buf%d", i);
+		vsensor_buf[i] = GTK_TEXT_BUFFER(gtk_builder_get_object(builder, name));
+		if(vsensor_buf[i] == NULL)
+		{
+			exit(1);
+		}
+
+		g_signal_connect(G_OBJECT(calib_btn[i]),"clicked",
+			G_CALLBACK(calib), i);
+		g_signal_connect(G_OBJECT(read_btn[i]),"clicked",
+			G_CALLBACK(read_vshift), i);
+		g_signal_connect(G_OBJECT(write_btn[i]),"clicked",
+			G_CALLBACK(write_vshift), i);
+		g_signal_connect(G_OBJECT(readvsensor_btn[i]),"clicked",
+			G_CALLBACK(read_vsensor), i);
+	}
 }
 
 static void cn0540_init()
 {
 	int idx;
 
-	gtk_button_clicked(calib_btn);
+//	gtk_button_clicked(calib_btn[0]);
 
 }
 
@@ -247,17 +339,30 @@ static GtkWidget *cn0540_plugin_init(struct osc_plugin *plugin,
 
 static bool cn0540_identify(const struct osc_plugin *plugin)
 {
+	int i = 0;
+	char dac_dev_name[64];
 	/* Use the OSC's IIO context just to detect the devices */
 	struct iio_context *osc_ctx = get_context_from_osc();
 
 	/* Get the iio devices */
-	iio_adc = iio_context_find_device(osc_ctx, ADC_DEVICE);
-	iio_dac = iio_context_find_device(osc_ctx, DAC_DEVICE);
-
-	if (!iio_adc  || !iio_dac ) {
-		printf("Could not find expected iio devices\n");
+	iio_adc[0] = iio_context_find_device(osc_ctx, ADC_DEVICE0);
+	iio_adc[1] = iio_context_find_device(osc_ctx, ADC_DEVICE1);
+	if (iio_adc[0] == NULL || iio_adc[1] == NULL)
+	{
 		return FALSE;
 	}
+
+	for(i = 0; i < TOTOL_CHAN; i++)
+	{
+		memset(dac_dev_name, 0, sizeof(dac_dev_name));
+		sprintf(dac_dev_name, "ltc2606_%d", i); 
+		iio_dac[i] = iio_context_find_device(osc_ctx, dac_dev_name);
+		if(iio_dac[i] == NULL) 
+		{
+			return FALSE;			
+		}
+	}
+
 	return TRUE;
 }
 
